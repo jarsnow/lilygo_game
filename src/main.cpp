@@ -2,6 +2,7 @@
 #include "TFT_eSPI.h" /* Please use the TFT library provided in the library. */
 #include "pin_config.h"
 #include "image.h"
+#include "vex.h"
 
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
@@ -110,17 +111,17 @@ void loop()
 
     for (size_t i = 0; i < 54400; i++) {
         if (i / 18133 == 0) {
-            image::pixels[i] = color1;
+            pixels[i] = color1;
         }
         if (i / 18133 == 1) {
-            image::pixels[i] = color2;
+            pixels[i] = color2;
         }
         if (i / 18133 == 2) {
-            image::pixels[i] = color3;
+            pixels[i] = color3;
         }
     }
 
-    tft.pushImage(0, 0, 320, 170, (uint16_t *)image::pixels);
+    tft.pushImage(0, 0, 320, 170, (uint16_t *)vex);
     delay(WAIT);
 
     iterations++;
