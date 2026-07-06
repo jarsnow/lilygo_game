@@ -1,14 +1,16 @@
 #include "Arduino.h"
 #include "TFT_eSPI.h" /* Please use the TFT library provided in the library. */
 #include "pin_config.h"
+#include "image.h"
 
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
 #define LCD_MODULE_CMD_1
 
 TFT_eSPI tft = TFT_eSPI();
-#define WAIT 5000
+#define WAIT 50
 unsigned long targetTime = 0; // Used for testing draw times
+size_t iterations = 0;
 
 #if defined(LCD_MODULE_CMD_1)
 typedef struct {
@@ -64,31 +66,64 @@ void setup()
 
     pinMode(PIN_LCD_BL, OUTPUT);
     digitalWrite(PIN_LCD_BL, HIGH);
+
+
+    pinMode(PIN_LCD_BL, OUTPUT);
+    digitalWrite(PIN_LCD_BL, HIGH);
+    // First we test them with a background colour set
+    tft.setTextSize(1);
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+
 }
 
 void loop()
 {
     targetTime = millis();
 
-    // First we test them with a background colour set
-    tft.setTextSize(1);
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    // fix pixels
+    // RRRRR_GGGGGG_BBBBB -> 16bit
+    const unsigned short red = 0b1111100000000000;
+    const unsigned short green = 0b0000011111100000;
+    const unsigned short blue = 0b0000000000011111;
+    unsigned short color1;
+    unsigned short color2;
+    unsigned short color3;
 
-    tft.drawString("John was here", 0, 0, 4);
+    switch(iterations % 3) {
+        case 0:
+            color1 = red;
+            color2 = green;
+            color3 = blue;
+            break;
+        case 1:
+            color2 = red;
+            color3 = green;
+            color1 = blue;
+            break;
+        case 2:
+            color3 = red;
+            color1 = green;
+            color2 = blue;
+            break;
+    }
+
+    for (size_t i = 0; i < 54400; i++) {
+        if (i / 18133 == 0) {
+            image::pixels[i] = color1;
+        }
+        if (i / 18133 == 1) {
+            image::pixels[i] = color2;
+        }
+        if (i / 18133 == 2) {
+            image::pixels[i] = color3;
+        }
+    }
+
+    tft.pushImage(0, 0, 320, 170, (uint16_t *)image::pixels);
     delay(WAIT);
 
-    tft.fillScreen(TFT_BLACK);
-    tft.drawString("I like that new song", 0, 0, 4);
-    delay(WAIT);
-
-    tft.fillScreen(TFT_BLACK);
-    tft.drawString("It's called 'Shop 3'", 0, 0, 4);
-    delay(WAIT);
-
-    tft.fillScreen(TFT_BLACK);
-    tft.drawString("I find it to be very calming", 0, 0, 4);
-    delay(WAIT);
+    iterations++;
 }
 
 
@@ -110,8 +145,5 @@ void loop()
     TFT_BACKLIGHT_ON   != HIGH  || \
     170   != TFT_WIDTH  || \
     320   != TFT_HEIGHT
-#error  "Error! Please make sure <User_Setups/Setup206_LilyGo_T_Display_S3.h> is selected in <TFT_eSPI/User_Setup_Select.h>"
-#error  "Error! Please make sure <User_Setups/Setup206_LilyGo_T_Display_S3.h> is selected in <TFT_eSPI/User_Setup_Select.h>"
-#error  "Error! Please make sure <User_Setups/Setup206_LilyGo_T_Display_S3.h> is selected in <TFT_eSPI/User_Setup_Select.h>"
 #error  "Error! Please make sure <User_Setups/Setup206_LilyGo_T_Display_S3.h> is selected in <TFT_eSPI/User_Setup_Select.h>"
 #endif
