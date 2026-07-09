@@ -1,3 +1,5 @@
+// this file is just for linting support, real library is in .pio (i think)
+
 // Stop fonts etc. being loaded multiple times
 #ifndef _TFT_eSPIH_
 #define _TFT_eSPIH_

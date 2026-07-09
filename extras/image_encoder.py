@@ -14,6 +14,11 @@ import sys
 image_height = 170
 image_width = 320
 
+image_input_max_num = 256 # 8 bits per color in a normal image
+image_output_max_num_rgb = [32, 64, 32] # 5 bits for red and blue, 6 for green
+
+byte_swapped = True
+
 if (len(sys.argv) != 3):
     print("you need to pass in an image and a name")
     exit()
@@ -33,13 +38,22 @@ for r in range(image_height):
     for c in range(image_width):
         rgba = array[r, c]
         # for each value, multiply by 32 (64 if green) then divide by 256
-        eight_bpp_rgb = [rgba[0] * 32 // 256, rgba[1] * 64 // 256, rgba[2] * 32 // 256]
+        eight_bpp_rgb = [rgba[0] * image_output_max_num_rgb[0] // image_input_max_num,
+                         rgba[1] * image_output_max_num_rgb[1] // image_input_max_num,
+                         rgba[2] * image_output_max_num_rgb[2] // image_input_max_num]
         
         # get the binary representations of each, add to one string
-        pixel_string = "0b"
+        pixel_string = ""
         pixel_string += format(eight_bpp_rgb[0], "05b")
         pixel_string += format(eight_bpp_rgb[1], "06b")
         pixel_string += format(eight_bpp_rgb[2], "05b")
+
+        # testing reverse byte order
+        if (byte_swapped):
+            pixel_string = "0b" + pixel_string[-8:] + pixel_string[:8]
+        else:
+            pixel_string = "0b" + pixel_string
+
         pixel_strings_to_add.append(pixel_string)
 
 # create new image.h file
@@ -53,3 +67,5 @@ with open(sys.argv[2] + ".h", "w") as file:
             file.write("\n")
 
     file.write("};")
+
+

@@ -1,8 +1,9 @@
 #include "Arduino.h"
 #include "TFT_eSPI.h" /* Please use the TFT library provided in the library. */
 #include "pin_config.h"
-#include "image.h"
-#include "vex.h"
+
+#include "vex_reverse.h"
+#include "test_vex.h"
 
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
@@ -85,7 +86,7 @@ void setup()
 void loop()
 {
     targetTime = millis();
-    screen.pushImage(0, 0, tft.width(), tft.height(), (uint16_t*) vex);
+    screen.pushImage(0, 0, tft.width(), tft.height(), (uint16_t*) test_vex);
 
     screen.pushSprite(0, 0);
     delay(WAIT);
