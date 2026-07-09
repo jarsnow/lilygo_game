@@ -2,8 +2,8 @@
 #include "TFT_eSPI.h" /* Please use the TFT library provided in the library. */
 #include "pin_config.h"
 
-#include "vex_reverse.h"
-#include "test_vex.h"
+#include "vex_swapped.h"
+#include "leblanc_swapped.h"
 
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
@@ -86,8 +86,13 @@ void setup()
 void loop()
 {
     targetTime = millis();
-    screen.pushImage(0, 0, tft.width(), tft.height(), (uint16_t*) test_vex);
 
+    // write vex image to sprite, then to screen
+    screen.pushImage(0, 0, tft.width(), tft.height(), (uint16_t*) vex_swapped);
+    screen.pushSprite(0, 0);
+    delay(WAIT);
+
+    screen.pushImage(0, 0, tft.width(), tft.height(), (uint16_t*) leblanc_swapped);
     screen.pushSprite(0, 0);
     delay(WAIT);
 
