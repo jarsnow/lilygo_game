@@ -9,6 +9,8 @@
 #define LCD_MODULE_CMD_1
 
 TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite screen = TFT_eSprite(&tft);
+
 #define WAIT 50
 unsigned long targetTime = 0; // Used for testing draw times
 size_t iterations = 0;
@@ -76,52 +78,16 @@ void setup()
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
 
+    screen.createSprite(tft.width(), tft.height());
+
 }
 
 void loop()
 {
     targetTime = millis();
+    screen.pushImage(0, 0, tft.width(), tft.height(), (uint16_t*) vex);
 
-    // fix pixels
-    // RRRRR_GGGGGG_BBBBB -> 16bit
-    const unsigned short red = 0b1111100000000000;
-    const unsigned short green = 0b0000011111100000;
-    const unsigned short blue = 0b0000000000011111;
-    unsigned short color1;
-    unsigned short color2;
-    unsigned short color3;
-
-    switch(iterations % 3) {
-        case 0:
-            color1 = red;
-            color2 = green;
-            color3 = blue;
-            break;
-        case 1:
-            color2 = red;
-            color3 = green;
-            color1 = blue;
-            break;
-        case 2:
-            color3 = red;
-            color1 = green;
-            color2 = blue;
-            break;
-    }
-
-    for (size_t i = 0; i < 54400; i++) {
-        if (i / 18133 == 0) {
-            pixels[i] = color1;
-        }
-        if (i / 18133 == 1) {
-            pixels[i] = color2;
-        }
-        if (i / 18133 == 2) {
-            pixels[i] = color3;
-        }
-    }
-
-    tft.pushImage(0, 0, 320, 170, (uint16_t *)vex);
+    screen.pushSprite(0, 0);
     delay(WAIT);
 
     iterations++;
