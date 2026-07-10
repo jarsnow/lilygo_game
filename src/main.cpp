@@ -1,5 +1,6 @@
 #include "Arduino.h"
-#include "TFT_eSPI.h" /* Please use the TFT library provided in the library. */
+#include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
+#include "esp32-hal-cpu.h"
 #include "pin_config.h"
 
 #include "vex_swapped.h"
@@ -49,6 +50,8 @@ void setup()
     Serial.begin(115200);
     Serial.println("Hello T-Display-S3");
 
+    // setCpuFrequencyMhz(80);
+
     tft.begin();
 
 #if defined(LCD_MODULE_CMD_1)
@@ -75,11 +78,9 @@ void setup()
     pinMode(PIN_LCD_BL, OUTPUT);
     digitalWrite(PIN_LCD_BL, HIGH);
     // First we test them with a background colour set
-    tft.setTextSize(1);
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
 
     screen.createSprite(tft.width(), tft.height());
+    // tft.initDMA();
 
 }
 
@@ -88,13 +89,16 @@ void loop()
     targetTime = millis();
 
     // write vex image to sprite, then to screen
-    screen.pushImage(0, 0, tft.width(), tft.height(), (uint16_t*) vex_swapped);
+    screen.fillSprite(TFT_BLUE);
     screen.pushSprite(0, 0);
     delay(WAIT);
 
-    screen.pushImage(0, 0, tft.width(), tft.height(), (uint16_t*) leblanc_swapped);
+    screen.fillSprite(TFT_RED);
     screen.pushSprite(0, 0);
     delay(WAIT);
+
+    //Serial.print("cpu frequency (MHz): ");
+    // Serial.println(spiGet());
 
     iterations++;
 }
