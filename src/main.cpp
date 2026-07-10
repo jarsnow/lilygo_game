@@ -1,6 +1,7 @@
 #include "Arduino.h"
 #include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
 #include "esp32-hal-cpu.h"
+#include "esp32-hal.h"
 #include "pin_config.h"
 
 #include "vex_swapped.h"
@@ -13,7 +14,7 @@
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
 
-#define WAIT 50
+#define WAIT 15
 unsigned long targetTime = 0; // Used for testing draw times
 size_t iterations = 0;
 
@@ -88,14 +89,15 @@ void loop()
 {
     targetTime = millis();
 
-    // write vex image to sprite, then to screen
-    screen.fillSprite(TFT_BLUE);
-    screen.pushSprite(0, 0);
-    delay(WAIT);
+    for (size_t i = 0; i < 50; i++) {
+        // write vex image to sprite, then to screen
+        screen.fillSprite(TFT_BLACK);
+        screen.fillRect(50 + 5 * i, 50, 50, 50, TFT_BLUE);
+        //screen.pushSprite(0, 0);
+        screen.pushSprite(50, 50, 50, 50, 200, 100);
+        delay(WAIT);
+    }
 
-    screen.fillSprite(TFT_RED);
-    screen.pushSprite(0, 0);
-    delay(WAIT);
 
     //Serial.print("cpu frequency (MHz): ");
     // Serial.println(spiGet());
