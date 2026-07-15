@@ -1,8 +1,11 @@
 #include "Arduino.h"
 #include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
+#include "box2d/b2_math.h"
+#include "box2d/b2_world.h"
 #include "esp32-hal-cpu.h"
 #include "esp32-hal.h"
 #include "pin_config.h"
+#include "box2d/box2d.h"
 
 #include "vex_swapped.h"
 #include "leblanc_swapped.h"
@@ -10,6 +13,9 @@
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
 #define LCD_MODULE_CMD_1
+
+// used for sizing, no matter the size of the orb, it will always be 1meter x 1meter in box2d
+#define ORB_DIAMETER = 45
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
@@ -80,9 +86,68 @@ void setup()
     digitalWrite(PIN_LCD_BL, HIGH);
     // First we test them with a background colour set
 
-    screen.createSprite(tft.width(), tft.height());
-    // tft.initDMA();
+    // test, wait here so I have a chance to monitor
+    delay(10 * 1000);
 
+    screen.createSprite(tft.width(), tft.height());
+    
+    // test for box2d
+    b2Vec2 gravity(0.0f, -9.8f);
+    b2World world(gravity);
+
+    // bodies are first defined with position
+    b2BodyDef groundBodyDef;
+    groundBodyDef.position.Set(0.0f, -10.0f);
+
+    // then created using world object
+    b2Body* groundBody = world.CreateBody(&groundBodyDef);
+
+    // an object needs its fixture of its shape defined
+    // a fixture is simply a subsection of an object
+    b2PolygonShape groundBox;
+    groundBox.SetAsBox(50.0f, 10.0f);
+    // then these fixtures are created onto the body
+    groundBody->CreateFixture(&groundBox, 0.0f);
+
+    
+    // creating dynamic body
+    b2BodyDef bodyDef;
+    // b2_dynamicBody is used if the body is to move in response to forces
+    bodyDef.type = b2_dynamicBody;
+    bodyDef.position.Set(0.0f, 4.0f);
+    b2Body* body = world.CreateBody(&bodyDef);
+
+    b2PolygonShape dynamicBox;
+    dynamicBox.SetAsBox(1.0f, 1.0f);
+
+    b2FixtureDef fixtureDef;
+    fixtureDef.shape = &dynamicBox;
+    fixtureDef.density = 1.0f;
+    fixtureDef.friction = 0.3f;
+
+    body->CreateFixture(&fixtureDef);
+
+
+    // simulating world
+    float timeStep = 1.0f / 60.0f;
+    int32 velocityIterations = 6;
+    int32 positionIterations = 2;
+
+    for (int32 i = 0; i < 60; ++i)
+    {
+        world.Step(timeStep, velocityIterations, positionIterations);
+        b2Vec2 position = body->GetPosition();
+        float angle = body->GetAngle();
+        Serial.print("x position: ");
+        Serial.println(position.x);
+
+        Serial.print("y position: ");
+        Serial.println(position.y);
+
+        Serial.print("angle: ");
+        Serial.println(angle);
+        delay(timeStep * 1000);
+    }
 }
 
 void loop()
@@ -103,6 +168,10 @@ void loop()
     // Serial.println(spiGet());
 
     iterations++;
+}
+
+void draw_circle()
+{
 }
 
 
