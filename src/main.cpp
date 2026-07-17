@@ -15,6 +15,7 @@
 #include "vex_swapped.h"
 #include "leblanc_swapped.h"
 
+#include <cmath>
 # include <cstdlib>
 
 
@@ -30,7 +31,7 @@
 #define SCREEN_WIDTH 3.777
 #define SCREEN_HEIGHT 7.111
 b2World* world;
-b2Body* test_orb;
+b2Body* test_orbs[5];
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
@@ -116,8 +117,12 @@ void setup_world()
     // create dynamic bodies here
     b2BodyDef orbDef;
     orbDef.type = b2_dynamicBody;
-    orbDef.position.Set(0.0f, 0.0f);
-    test_orb = world->CreateBody(&orbDef);
+
+    // create 5 balls
+    for (size_t i = 0; i < 5; i++) {
+        orbDef.position.Set(i * 0.3f, 0.3f);
+        test_orbs[i] = world->CreateBody(&orbDef);
+    }
 
     // radius must be 0.5
     b2CircleShape orbShape;
@@ -130,21 +135,24 @@ void setup_world()
     orbFixtureDef.friction = 0.1f;
 
     // create the orb
-    test_orb->CreateFixture(&orbFixtureDef);
+    for (size_t i = 0; i < 5; i++) {
+        test_orbs[i]->CreateFixture(&orbFixtureDef);
+    }
 }
 
 void draw_circle()
 {
     // make sure when drawing things to the screen, the coordinates are translated over correctly
     // 0,0 is center of the display
-    b2Vec2 position = test_orb->GetPosition();
-    int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2);
-    int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2);
+    for (size_t i = 0; i < 5; i++) {
+        b2Vec2 position = test_orbs[i]->GetPosition();
+        int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2);
+        int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2);
 
-    // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
-    // test with box for now
-    screen.fillRect(py - (ORB_DIAMETER / 2), px - (ORB_DIAMETER / 2), ORB_DIAMETER, ORB_DIAMETER, TFT_RED);
-    //screen.fillRect(0, 0, ORB_DIAMETER, ORB_DIAMETER, TFT_RED);
+        // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
+        // test with box for now
+        screen.fillCircle(py, px, ORB_DIAMETER / 2, TFT_RED);
+    }
 }
 
 void setup()
