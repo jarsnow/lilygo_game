@@ -26,12 +26,15 @@
 // box2d setup
 // used for sizing, no matter the size of the orb, it will always be 1meter x 1meter in box2d
 #define ORB_DIAMETER 45
+#define ORB_COUNT 15
 #define WALL_THICKNESS 5 // represents how thick the wall should be
-// these should realistically be calculated based on orb diameter, assume it = 45 for now
-#define SCREEN_WIDTH 3.777
-#define SCREEN_HEIGHT 7.111
+
+// represents the size of the screen in box2d's meter dimensions
+float SCREEN_WIDTH = (float) SCREEN_HEIGHT_PX / ORB_DIAMETER;
+float SCREEN_HEIGHT = (float) SCREEN_WIDTH_PX / ORB_DIAMETER;
+
 b2World* world;
-b2Body* test_orbs[5];
+b2Body* test_orbs[ORB_COUNT];
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
@@ -119,8 +122,8 @@ void setup_world()
     orbDef.type = b2_dynamicBody;
 
     // create 5 balls
-    for (size_t i = 0; i < 5; i++) {
-        orbDef.position.Set(i * 0.3f, 0.3f);
+    for (size_t i = 0; i < ORB_COUNT; i++) {
+        orbDef.position.Set(i * 0.1f, 0.1f);
         test_orbs[i] = world->CreateBody(&orbDef);
     }
 
@@ -135,7 +138,7 @@ void setup_world()
     orbFixtureDef.friction = 0.1f;
 
     // create the orb
-    for (size_t i = 0; i < 5; i++) {
+    for (size_t i = 0; i < ORB_COUNT; i++) {
         test_orbs[i]->CreateFixture(&orbFixtureDef);
     }
 }
@@ -144,7 +147,7 @@ void draw_circle()
 {
     // make sure when drawing things to the screen, the coordinates are translated over correctly
     // 0,0 is center of the display
-    for (size_t i = 0; i < 5; i++) {
+    for (size_t i = 0; i < ORB_COUNT; i++) {
         b2Vec2 position = test_orbs[i]->GetPosition();
         int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2);
         int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2);
@@ -210,7 +213,7 @@ void loop()
     iterations++;
 
     // test gravity by setting it to a random direction every once in a while
-    if (iterations % 50 == 0){
+    if (iterations % 75 == 0){
         // get random number -10 to 10
         int random_x = (rand() % 21) - 10;
         int random_y = (rand() % 21) - 10;
