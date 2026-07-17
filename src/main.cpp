@@ -1,6 +1,11 @@
 #include "Arduino.h"
 #include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
+#include "box2d/b2_body.h"
+#include "box2d/b2_circle_shape.h"
+#include "box2d/b2_common.h"
+#include "box2d/b2_fixture.h"
 #include "box2d/b2_math.h"
+#include "box2d/b2_polygon_shape.h"
 #include "box2d/b2_world.h"
 #include "esp32-hal-cpu.h"
 #include "esp32-hal.h"
@@ -10,12 +15,22 @@
 #include "vex_swapped.h"
 #include "leblanc_swapped.h"
 
+# include <cstdlib>
+
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
 #define LCD_MODULE_CMD_1
-
+#define SCREEN_WIDTH_PX 320
+#define SCREEN_HEIGHT_PX 170
+// box2d setup
 // used for sizing, no matter the size of the orb, it will always be 1meter x 1meter in box2d
-#define ORB_DIAMETER = 45
+#define ORB_DIAMETER 45
+#define WALL_THICKNESS 5 // represents how thick the wall should be
+// these should realistically be calculated based on orb diameter, assume it = 45 for now
+#define SCREEN_WIDTH 3.777
+#define SCREEN_HEIGHT 7.111
+b2World* world;
+b2Body* test_orb;
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
@@ -48,6 +63,89 @@ lcd_cmd_t lcd_st7789v[] = {
     {0xE1, {0XF0, 0X08, 0X0C, 0X0B, 0X09, 0X24, 0X2B, 0X22, 0X43, 0X38, 0X15, 0X16, 0X2F, 0X37}, 14},
 };
 #endif
+
+void setup_world()
+{
+    // create world
+    b2Vec2 gravity(2.0f, -9.8f);
+    world = new b2World(gravity);
+
+
+    // left and right wall fixtures
+    // remember that the given values for SetAsBox are half-values
+    b2PolygonShape leftWall;
+    b2PolygonShape rightWall;
+    b2PolygonShape upperWall;
+    b2PolygonShape lowerWall;
+
+    float side_wall_width = 0.5 * WALL_THICKNESS;
+    float side_wall_height = 0.5 * (SCREEN_HEIGHT) + WALL_THICKNESS;
+
+    // also used for the top boundary but I can't think of a good name for both
+    float floor_width = 0.5 * SCREEN_WIDTH;
+    float floor_height = 0.5 * WALL_THICKNESS;
+
+    leftWall.SetAsBox(side_wall_width, side_wall_height);
+    rightWall.SetAsBox(side_wall_width, side_wall_height);
+    upperWall.SetAsBox(floor_width, floor_height);
+    lowerWall.SetAsBox(floor_width, floor_height);
+
+    // create body to represent 4 borders
+    // one body, four fixtures
+    b2BodyDef leftWallDef;
+    b2BodyDef rightWallDef;
+    b2BodyDef upperWallDef;
+    b2BodyDef lowerWallDef;
+
+    // set the left/right wall's shape to left/right of the center of the screen
+    leftWallDef.position.Set(-0.5 * (SCREEN_WIDTH + WALL_THICKNESS), 0);
+    rightWallDef.position.Set(0.5 * (SCREEN_WIDTH + WALL_THICKNESS), 0);
+    upperWallDef.position.Set(0, 0.5 * (SCREEN_HEIGHT + WALL_THICKNESS));
+    lowerWallDef.position.Set(0, -0.5 * (SCREEN_HEIGHT + WALL_THICKNESS));
+
+    b2Body* leftWallBody = world->CreateBody(&leftWallDef);
+    b2Body* rightWallBody = world->CreateBody(&rightWallDef);
+    b2Body* upperWallBody = world->CreateBody(&upperWallDef);
+    b2Body* lowerWallBody = world->CreateBody(&lowerWallDef);
+
+    leftWallBody->CreateFixture(&leftWall, 0.0f);
+    rightWallBody->CreateFixture(&rightWall, 0.0f);
+    upperWallBody->CreateFixture(&upperWall, 0.0f);
+    lowerWallBody->CreateFixture(&lowerWall, 0.0f);
+
+    // create dynamic bodies here
+    b2BodyDef orbDef;
+    orbDef.type = b2_dynamicBody;
+    orbDef.position.Set(0.0f, 0.0f);
+    test_orb = world->CreateBody(&orbDef);
+
+    // radius must be 0.5
+    b2CircleShape orbShape;
+    orbShape.m_radius = 0.5f;
+
+    // create fixture
+    b2FixtureDef orbFixtureDef;
+    orbFixtureDef.shape = &orbShape;
+    orbFixtureDef.density = 1.0f;
+    orbFixtureDef.friction = 0.1f;
+
+    // create the orb
+    test_orb->CreateFixture(&orbFixtureDef);
+}
+
+void draw_circle()
+{
+    // make sure when drawing things to the screen, the coordinates are translated over correctly
+    // 0,0 is center of the display
+    b2Vec2 position = test_orb->GetPosition();
+    int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2);
+    int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2);
+
+    // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
+    // test with box for now
+    screen.fillRect(py - (ORB_DIAMETER / 2), px - (ORB_DIAMETER / 2), ORB_DIAMETER, ORB_DIAMETER, TFT_RED);
+    //screen.fillRect(0, 0, ORB_DIAMETER, ORB_DIAMETER, TFT_RED);
+}
 
 void setup()
 {
@@ -86,92 +184,31 @@ void setup()
     digitalWrite(PIN_LCD_BL, HIGH);
     // First we test them with a background colour set
 
-    // test, wait here so I have a chance to monitor
-    delay(10 * 1000);
 
     screen.createSprite(tft.width(), tft.height());
-    
-    // test for box2d
-    b2Vec2 gravity(0.0f, -9.8f);
-    b2World world(gravity);
 
-    // bodies are first defined with position
-    b2BodyDef groundBodyDef;
-    groundBodyDef.position.Set(0.0f, -10.0f);
-
-    // then created using world object
-    b2Body* groundBody = world.CreateBody(&groundBodyDef);
-
-    // an object needs its fixture of its shape defined
-    // a fixture is simply a subsection of an object
-    b2PolygonShape groundBox;
-    groundBox.SetAsBox(50.0f, 10.0f);
-    // then these fixtures are created onto the body
-    groundBody->CreateFixture(&groundBox, 0.0f);
-
-    
-    // creating dynamic body
-    b2BodyDef bodyDef;
-    // b2_dynamicBody is used if the body is to move in response to forces
-    bodyDef.type = b2_dynamicBody;
-    bodyDef.position.Set(0.0f, 4.0f);
-    b2Body* body = world.CreateBody(&bodyDef);
-
-    b2PolygonShape dynamicBox;
-    dynamicBox.SetAsBox(1.0f, 1.0f);
-
-    b2FixtureDef fixtureDef;
-    fixtureDef.shape = &dynamicBox;
-    fixtureDef.density = 1.0f;
-    fixtureDef.friction = 0.3f;
-
-    body->CreateFixture(&fixtureDef);
-
-
-    // simulating world
-    float timeStep = 1.0f / 60.0f;
-    int32 velocityIterations = 6;
-    int32 positionIterations = 2;
-
-    for (int32 i = 0; i < 60; ++i)
-    {
-        world.Step(timeStep, velocityIterations, positionIterations);
-        b2Vec2 position = body->GetPosition();
-        float angle = body->GetAngle();
-        Serial.print("x position: ");
-        Serial.println(position.x);
-
-        Serial.print("y position: ");
-        Serial.println(position.y);
-
-        Serial.print("angle: ");
-        Serial.println(angle);
-        delay(timeStep * 1000);
-    }
+    setup_world();
 }
 
 void loop()
 {
     targetTime = millis();
 
-    for (size_t i = 0; i < 50; i++) {
-        // write vex image to sprite, then to screen
-        screen.fillSprite(TFT_BLACK);
-        screen.fillRect(50 + 5 * i, 50, 50, 50, TFT_BLUE);
-        //screen.pushSprite(0, 0);
-        screen.pushSprite(50, 50, 50, 50, 200, 100);
-        delay(WAIT);
-    }
+    screen.fillSprite(TFT_BLACK);
+    draw_circle();
+    world->Step(1.0f/60.0f, 6, 2);
 
-
-    //Serial.print("cpu frequency (MHz): ");
-    // Serial.println(spiGet());
-
+    screen.pushSprite(0, 0);
     iterations++;
-}
 
-void draw_circle()
-{
+    // test gravity by setting it to a random direction every once in a while
+    if (iterations % 50 == 0){
+        // get random number -10 to 10
+        int random_x = (rand() % 21) - 10;
+        int random_y = (rand() % 21) - 10;
+        b2Vec2 new_gravity(random_x, random_y);
+        world->SetGravity(new_gravity);
+    }
 }
 
 
