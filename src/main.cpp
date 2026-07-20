@@ -228,6 +228,11 @@ void loop()
         int random_y = (rand() % 21) - 10;
         b2Vec2 new_gravity(random_x, random_y);
         world->SetGravity(new_gravity);
+
+        // awake all orbs
+        for (b2Body* orb : test_orbs) {
+            orb->SetAwake(true);
+        }
     }
 }
 
