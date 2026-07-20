@@ -12,8 +12,9 @@
 #include "pin_config.h"
 #include "box2d/box2d.h"
 
+
+#include "orb.h"
 #include "vex_swapped.h"
-#include "leblanc_swapped.h"
 
 #include <cmath>
 # include <cstdlib>
@@ -148,13 +149,21 @@ void draw_circle()
     // make sure when drawing things to the screen, the coordinates are translated over correctly
     // 0,0 is center of the display
     for (size_t i = 0; i < ORB_COUNT; i++) {
+        // need to draw the orb image to a sprite, then draw that sprite to the main screen sprite
+
+        // push image to temp sprite
+        TFT_eSprite temp_orb_sprite = TFT_eSprite(&tft);
+        temp_orb_sprite.createSprite(45, 45);
+        temp_orb_sprite.pushImage(0, 0, 45, 45, orb);
+
         b2Vec2 position = test_orbs[i]->GetPosition();
-        int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2);
-        int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2);
+        int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2) - (ORB_DIAMETER / 2);
+        int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2) - (ORB_DIAMETER / 2);
 
         // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
-        // test with box for now
-        screen.fillCircle(py, px, ORB_DIAMETER / 2, TFT_RED);
+        // push sprite to screen sprite
+        const unsigned short pink = 0b1111100000011111;
+        temp_orb_sprite.pushToSprite(&screen, py, px, pink);
     }
 }
 

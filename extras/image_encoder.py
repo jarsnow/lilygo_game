@@ -11,8 +11,8 @@ from PIL import Image
 import numpy as np
 import sys
 
-image_height = 170
-image_width = 320
+image_height = 45
+image_width = 45
 
 image_input_max_num = 256 # 8 bits per color in a normal image
 image_output_max_num_rgb = [32, 64, 32] # 5 bits for red and blue, 6 for green
@@ -27,7 +27,7 @@ img = Image.open(sys.argv[1])
 file_name = sys.argv[2]
 array = np.asarray(img, dtype=np.uint64)
 
-if (array.shape != (170, 320, 4)):
+if (array.shape != (image_height, image_width, 4)):
     print("image is not right shape, check if it is png or size")
     exit()
 
