@@ -41,7 +41,6 @@ TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
 
 #define WAIT 15
-unsigned long targetTime = 0; // Used for testing draw times
 size_t iterations = 0;
 
 #if defined(LCD_MODULE_CMD_1)
@@ -148,7 +147,7 @@ void draw_circle()
 {
     // make sure when drawing things to the screen, the coordinates are translated over correctly
     // 0,0 is center of the display
-    for (size_t i = 0; i < ORB_COUNT; i++) {
+    for (b2Body* single_orb : test_orbs) {
         // need to draw the orb image to a sprite, then draw that sprite to the main screen sprite
 
         // push image to temp sprite
@@ -156,7 +155,7 @@ void draw_circle()
         temp_orb_sprite.createSprite(45, 45);
         temp_orb_sprite.pushImage(0, 0, 45, 45, orb);
 
-        b2Vec2 position = test_orbs[i]->GetPosition();
+        b2Vec2 position = single_orb->GetPosition();
         int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2) - (ORB_DIAMETER / 2);
         int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2) - (ORB_DIAMETER / 2);
 
@@ -212,7 +211,7 @@ void setup()
 
 void loop()
 {
-    targetTime = millis();
+    ulong start_time = millis();
 
     screen.fillSprite(TFT_BLACK);
     draw_circle();
@@ -234,6 +233,10 @@ void loop()
             orb->SetAwake(true);
         }
     }
+
+    ulong end_time = millis();
+    ulong draw_time = end_time - start_time;
+    Serial.println(draw_time);
 }
 
 
