@@ -1,5 +1,6 @@
 #include "Arduino.h"
 #include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
+#include "HWCDC.h"
 #include "box2d/b2_body.h"
 #include "box2d/b2_circle_shape.h"
 #include "box2d/b2_common.h"
@@ -236,6 +237,7 @@ void loop()
 
     ulong end_time = millis();
     ulong draw_time = end_time - start_time;
+    Serial.print("Draw time: ");
     Serial.println(draw_time);
 }
 
