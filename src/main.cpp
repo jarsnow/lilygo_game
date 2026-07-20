@@ -40,6 +40,7 @@ b2Body* test_orbs[ORB_COUNT];
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
+TFT_eSprite temp_orb_sprite = TFT_eSprite(&tft);
 
 #define WAIT 15
 size_t iterations = 0;
@@ -136,7 +137,7 @@ void setup_world()
     b2FixtureDef orbFixtureDef;
     orbFixtureDef.shape = &orbShape;
     orbFixtureDef.density = 1.0f;
-    orbFixtureDef.friction = 0.1f;
+    orbFixtureDef.friction = 0.3f;
 
     // create the orb
     for (size_t i = 0; i < ORB_COUNT; i++) {
@@ -152,9 +153,13 @@ void draw_circle()
         // need to draw the orb image to a sprite, then draw that sprite to the main screen sprite
 
         // push image to temp sprite
-        TFT_eSprite temp_orb_sprite = TFT_eSprite(&tft);
-        temp_orb_sprite.createSprite(45, 45);
         temp_orb_sprite.pushImage(0, 0, 45, 45, orb);
+
+        TFT_eSprite rotated_sprite = TFT_eSprite(&tft);
+        rotated_sprite.createSprite(45, 45);
+        // translate angle to radians
+        float angle = -180 * ((single_orb->GetAngle() / PI) + 1);
+        temp_orb_sprite.pushRotated(&rotated_sprite, angle, TFT_RED);
 
         b2Vec2 position = single_orb->GetPosition();
         int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2) - (ORB_DIAMETER / 2);
@@ -163,7 +168,7 @@ void draw_circle()
         // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
         // push sprite to screen sprite
         const unsigned short pink = 0b1111100000011111;
-        temp_orb_sprite.pushToSprite(&screen, py, px, pink);
+        rotated_sprite.pushToSprite(&screen, py, px, pink);
     }
 }
 
@@ -206,6 +211,7 @@ void setup()
 
 
     screen.createSprite(tft.width(), tft.height());
+    temp_orb_sprite.createSprite(45, 45);
 
     setup_world();
 }
