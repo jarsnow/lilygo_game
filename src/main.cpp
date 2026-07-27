@@ -37,6 +37,12 @@ float SCREEN_HEIGHT = (float) SCREEN_WIDTH_PX / ORB_DIAMETER;
 
 b2World* world;
 b2Body* test_orbs[ORB_COUNT];
+b2Body* walls[4];
+
+b2Vec2 upper_wall_starting_point;
+
+// testing only
+float x_wall_velocity = 10;
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
@@ -103,16 +109,28 @@ void setup_world()
     b2BodyDef upperWallDef;
     b2BodyDef lowerWallDef;
 
+    leftWallDef.type = b2_kinematicBody;
+    rightWallDef.type = b2_kinematicBody;
+    upperWallDef.type = b2_kinematicBody;
+    lowerWallDef.type = b2_kinematicBody;
+
     // set the left/right wall's shape to left/right of the center of the screen
     leftWallDef.position.Set(-0.5 * (SCREEN_WIDTH + WALL_THICKNESS), 0);
     rightWallDef.position.Set(0.5 * (SCREEN_WIDTH + WALL_THICKNESS), 0);
     upperWallDef.position.Set(0, 0.5 * (SCREEN_HEIGHT + WALL_THICKNESS));
     lowerWallDef.position.Set(0, -0.5 * (SCREEN_HEIGHT + WALL_THICKNESS));
 
+    upper_wall_starting_point = b2Vec2(0, 0.5 * (SCREEN_HEIGHT + WALL_THICKNESS));
+
     b2Body* leftWallBody = world->CreateBody(&leftWallDef);
     b2Body* rightWallBody = world->CreateBody(&rightWallDef);
     b2Body* upperWallBody = world->CreateBody(&upperWallDef);
     b2Body* lowerWallBody = world->CreateBody(&lowerWallDef);
+
+    walls[0] = leftWallBody;
+    walls[1] = rightWallBody;
+    walls[2] = upperWallBody;
+    walls[3] = lowerWallBody;
 
     leftWallBody->CreateFixture(&leftWall, 0.0f);
     rightWallBody->CreateFixture(&rightWall, 0.0f);
@@ -155,20 +173,17 @@ void draw_circle()
         // push image to temp sprite
         temp_orb_sprite.pushImage(0, 0, 45, 45, orb);
 
-        TFT_eSprite rotated_sprite = TFT_eSprite(&tft);
-        rotated_sprite.createSprite(45, 45);
-        // translate angle to radians
-        float angle = -180 * ((single_orb->GetAngle() / PI) + 1);
-        temp_orb_sprite.pushRotated(&rotated_sprite, angle, TFT_RED);
+        b2Vec2 moved_diff = walls[2]->GetPosition() - upper_wall_starting_point;
 
-        b2Vec2 position = single_orb->GetPosition();
+        // subtract the distance that the wall has moved to get relative position
+        b2Vec2 position = single_orb->GetPosition() - moved_diff;
         int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2) - (ORB_DIAMETER / 2);
         int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2) - (ORB_DIAMETER / 2);
 
         // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
         // push sprite to screen sprite
         const unsigned short pink = 0b1111100000011111;
-        rotated_sprite.pushToSprite(&screen, py, px, pink);
+        temp_orb_sprite.pushToSprite(&screen, py, px, pink);
     }
 }
 
@@ -227,18 +242,26 @@ void loop()
     screen.pushSprite(0, 0);
     iterations++;
 
+
     // test gravity by setting it to a random direction every once in a while
-    if (iterations % 75 == 0){
+    if (iterations % 15 == 0){
         // get random number -10 to 10
         int random_x = (rand() % 21) - 10;
         int random_y = (rand() % 21) - 10;
         b2Vec2 new_gravity(random_x, random_y);
-        world->SetGravity(new_gravity);
+        //world->SetGravity(new_gravity);
 
         // awake all orbs
         for (b2Body* orb : test_orbs) {
             orb->SetAwake(true);
         }
+
+        // update wall velocity
+        for (b2Body* wall : walls){
+            wall->SetLinearVelocity(b2Vec2(x_wall_velocity, 0));
+        }
+
+        x_wall_velocity *= -1;
     }
 
     ulong end_time = millis();
