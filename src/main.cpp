@@ -42,7 +42,7 @@ b2Body* walls[4];
 b2Vec2 upper_wall_starting_point;
 
 // testing only
-float x_wall_velocity = 10;
+b2Vec2 wall_velocity_test = b2Vec2(10, 10);
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
@@ -258,10 +258,10 @@ void loop()
 
         // update wall velocity
         for (b2Body* wall : walls){
-            wall->SetLinearVelocity(b2Vec2(x_wall_velocity, 0));
+            wall->SetLinearVelocity(wall_velocity_test);
         }
 
-        x_wall_velocity *= -1;
+        wall_velocity_test *= -1;
     }
 
     ulong end_time = millis();
