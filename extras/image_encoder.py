@@ -11,11 +11,11 @@ from PIL import Image
 import numpy as np
 import sys
 
-image_height = 45
-image_width = 45
+image_height = 64
+image_width = 64
 
 image_input_max_num = 256 # 8 bits per color in a normal image
-image_output_max_num_rgb = [32, 64, 32] # 5 bits for red and blue, 6 for green
+image_output_max_num_rgb = [2**5, 2**6, 2**5] # 5 bits for red and blue, 6 for green
 
 byte_swapped = True
 
@@ -36,17 +36,24 @@ pixel_strings_to_add = []
 # convert array from uint8 to 5, 6, 5 
 for r in range(image_height):
     for c in range(image_width):
+
+
         rgba = array[r, c]
-        # for each value, multiply by 32 (64 if green) then divide by 256
-        eight_bpp_rgb = [rgba[0] * image_output_max_num_rgb[0] // image_input_max_num,
-                         rgba[1] * image_output_max_num_rgb[1] // image_input_max_num,
-                         rgba[2] * image_output_max_num_rgb[2] // image_input_max_num]
-        
-        # get the binary representations of each, add to one string
         pixel_string = ""
-        pixel_string += format(eight_bpp_rgb[0], "05b")
-        pixel_string += format(eight_bpp_rgb[1], "06b")
-        pixel_string += format(eight_bpp_rgb[2], "05b")
+
+        # edge case, if the pixel is transparent at all, then set it to pink instead
+        if(rgba[3] != 255):
+            pixel_string = "1111100000011111"
+        else:
+            # for each value, multiply by 32 (64 if green) then divide by 256
+            eight_bpp_rgb = [rgba[0] * image_output_max_num_rgb[0] // image_input_max_num,
+                             rgba[1] * image_output_max_num_rgb[1] // image_input_max_num,
+                             rgba[2] * image_output_max_num_rgb[2] // image_input_max_num]
+            
+            # get the binary representations of each, add to one string
+            pixel_string += format(eight_bpp_rgb[0], "05b")
+            pixel_string += format(eight_bpp_rgb[1], "06b")
+            pixel_string += format(eight_bpp_rgb[2], "05b")
 
         # testing reverse byte order
         if (byte_swapped):

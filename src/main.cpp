@@ -1,24 +1,30 @@
 #include "Arduino.h"
 #include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
 #include "HWCDC.h"
+
 #include "box2d/b2_body.h"
 #include "box2d/b2_circle_shape.h"
 #include "box2d/b2_common.h"
 #include "box2d/b2_fixture.h"
 #include "box2d/b2_math.h"
 #include "box2d/b2_polygon_shape.h"
+#include "box2d/b2_types.h"
 #include "box2d/b2_world.h"
-#include "esp32-hal-cpu.h"
-#include "esp32-hal.h"
-#include "pin_config.h"
 #include "box2d/box2d.h"
 
+#include "esp32-hal-cpu.h"
+#include "esp32-hal.h"
+
+#include "pin_config.h"
 
 #include "orb.h"
-#include "vex_swapped.h"
+#include "drawn_orb.h"
 
 #include <cmath>
 # include <cstdlib>
+#include <cstring>
+#include <iterator>
+#include <vector>
 
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
@@ -27,9 +33,15 @@
 #define SCREEN_HEIGHT_PX 170
 // box2d setup
 // used for sizing, no matter the size of the orb, it will always be 1meter x 1meter in box2d
+#define IMAGE_DIAMETER 64
 #define ORB_DIAMETER 45
 #define ORB_COUNT 15
 #define WALL_THICKNESS 5 // represents how thick the wall should be
+
+#define LIGHT_RING_COUNT 6
+const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
+const uint16 LIGHT_COLOR = 0b0100011010110000;//0x43d783
+uint16 light_values[LIGHT_RING_COUNT] = {0};
 
 // represents the size of the screen in box2d's meter dimensions
 float SCREEN_WIDTH = (float) SCREEN_HEIGHT_PX / ORB_DIAMETER;
@@ -48,7 +60,12 @@ TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
 TFT_eSprite temp_orb_sprite = TFT_eSprite(&tft);
 
-#define WAIT 15
+// must make this pointers
+TFT_eSprite* test_orb_animation[5];
+
+// light map as 1d array
+uint8* light_map = new uint8[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
+
 size_t iterations = 0;
 
 #if defined(LCD_MODULE_CMD_1)
@@ -163,6 +180,20 @@ void setup_world()
     }
 }
 
+int get_orb_center_pixel_x(b2Body* orb)
+{
+    b2Vec2 moved_diff = walls[2]->GetPosition() - upper_wall_starting_point;
+    b2Vec2 position = orb->GetPosition() - moved_diff;
+    return position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2);
+}
+
+int get_orb_center_pixel_y(b2Body* orb)
+{
+    b2Vec2 moved_diff = walls[2]->GetPosition() - upper_wall_starting_point;
+    b2Vec2 position = orb->GetPosition() - moved_diff;
+    return position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2);
+}
+
 void draw_circle()
 {
     // make sure when drawing things to the screen, the coordinates are translated over correctly
@@ -171,20 +202,82 @@ void draw_circle()
         // need to draw the orb image to a sprite, then draw that sprite to the main screen sprite
 
         // push image to temp sprite
-        temp_orb_sprite.pushImage(0, 0, 45, 45, orb);
+        temp_orb_sprite.pushImage(0, 0, 64, 64, drawn_orb);
 
         b2Vec2 moved_diff = walls[2]->GetPosition() - upper_wall_starting_point;
 
         // subtract the distance that the wall has moved to get relative position
         b2Vec2 position = single_orb->GetPosition() - moved_diff;
-        int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2) - (ORB_DIAMETER / 2);
-        int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2) - (ORB_DIAMETER / 2);
+        int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2) - (IMAGE_DIAMETER / 2);
+        int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2) - (IMAGE_DIAMETER / 2);
 
         // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
         // push sprite to screen sprite
         const unsigned short pink = 0b1111100000011111;
         temp_orb_sprite.pushToSprite(&screen, py, px, pink);
     }
+}
+
+void setup_light_ring_colors()
+{
+    // get background color R,G,B values
+    uint16 b_red = BACKGROUND_COLOR &   0b1111100000000000;
+    b_red >>= 11;
+    uint16 b_green = BACKGROUND_COLOR & 0b0000011111100000;
+    b_green >>= 5;
+    uint16 b_blue = BACKGROUND_COLOR &  0b0000000000011111;
+
+    // get light color R,G,B values
+    uint16 l_red = LIGHT_COLOR &   0b1111100000000000;
+    l_red >>= 11;
+    uint16 l_green = LIGHT_COLOR & 0b0000011111100000;
+    l_green >>= 5;
+    uint16 l_blue = LIGHT_COLOR &  0b0000000000011111;
+
+    // create LIGHT_RING_COUNT colors
+    // linearly interpolate between background to light
+    for (size_t i = 0; i < LIGHT_RING_COUNT; i++) {
+        float light_ratio = (float) (LIGHT_RING_COUNT - i) / LIGHT_RING_COUNT;
+
+        uint16 r_red = b_red * (1 - light_ratio) + l_red * light_ratio;
+        uint16 r_green = b_green * (1 - light_ratio) + l_green * light_ratio;
+        uint16 r_blue = b_blue * (1 - light_ratio) + l_blue * light_ratio;
+
+        uint16 result_color = (r_red << 11) + (r_green << 5) + r_blue;
+        light_values[i] = result_color;
+    }
+}
+
+// draw the area of light around each orb
+// draw multiple circles around each orb, 
+void draw_light()
+{
+    int orb_radius = ORB_DIAMETER / 2;
+    screen.fillSprite(BACKGROUND_COLOR);
+
+    const uint extra_light_radius = 40;
+    uint radius_per_step = extra_light_radius / LIGHT_RING_COUNT;
+
+    // get x,y center coords for each orb
+    int orbs_x[ORB_COUNT];
+    int orbs_y[ORB_COUNT];
+
+    // store current positions for each orb
+    for (size_t i = 0; i < ORB_COUNT; i++) {
+        b2Body* orb = test_orbs[i];
+
+        orbs_x[i] = get_orb_center_pixel_x(orb);
+        orbs_y[i] = get_orb_center_pixel_y(orb);
+    }
+
+    // draw all large, darker light first, for each orb
+    // then draw lighter orbs next
+    for (size_t i = 0; i < LIGHT_RING_COUNT; i++) {
+        for (size_t j = 0; j < ORB_COUNT; j++) {
+            screen.fillCircle(orbs_y[j], orbs_x[j], orb_radius + (radius_per_step * (LIGHT_RING_COUNT - i)), light_values[LIGHT_RING_COUNT - i]);
+        }
+    }
+
 }
 
 void setup()
@@ -222,21 +315,31 @@ void setup()
 
     pinMode(PIN_LCD_BL, OUTPUT);
     digitalWrite(PIN_LCD_BL, HIGH);
-    // First we test them with a background colour set
 
 
     screen.createSprite(tft.width(), tft.height());
-    temp_orb_sprite.createSprite(45, 45);
-
+    temp_orb_sprite.createSprite(64, 64);
+    
+    // init all sprites for animation testing
+    for (TFT_eSprite* sprite_frame : test_orb_animation){
+        sprite_frame = new TFT_eSprite(&tft);
+    }
+    setup_light_ring_colors();
     setup_world();
 }
 
 void loop()
 {
+    setup_light_ring_colors();
     ulong start_time = millis();
 
-    screen.fillSprite(TFT_BLACK);
+    const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
+    screen.fillSprite(BACKGROUND_COLOR);
+
+    draw_light();
     draw_circle();
+
+
     world->Step(1.0f/60.0f, 6, 2);
 
     screen.pushSprite(0, 0);
