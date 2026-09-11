@@ -1,3 +1,4 @@
+#include "Adafruit_Sensor.h"
 #include "Arduino.h"
 #include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
 #include "HWCDC.h"
@@ -12,6 +13,8 @@
 #include "box2d/b2_world.h"
 #include "box2d/box2d.h"
 
+#include <Adafruit_MPU6050.h>
+
 #include "esp32-hal-cpu.h"
 #include "esp32-hal.h"
 
@@ -21,6 +24,7 @@
 #include "drawn_orb.h"
 
 #include <cmath>
+#include <cstdint>
 # include <cstdlib>
 #include <cstring>
 #include <iterator>
@@ -38,7 +42,7 @@
 #define ORB_COUNT 15
 #define WALL_THICKNESS 5 // represents how thick the wall should be
 
-#define LIGHT_RING_COUNT 6
+#define LIGHT_RING_COUNT 4
 const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
 const uint16 LIGHT_COLOR = 0b0100011010110000;//0x43d783
 uint16 light_values[LIGHT_RING_COUNT] = {0};
@@ -202,7 +206,7 @@ void draw_circle()
         // need to draw the orb image to a sprite, then draw that sprite to the main screen sprite
 
         // push image to temp sprite
-        temp_orb_sprite.pushImage(0, 0, 64, 64, drawn_orb);
+        temp_orb_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, drawn_orb);
 
         b2Vec2 moved_diff = walls[2]->GetPosition() - upper_wall_starting_point;
 
@@ -280,6 +284,34 @@ void draw_light()
 
 }
 
+void mpu_test()
+{
+    Wire.begin(43, 44);
+    Wire.setClock(50000);
+    Adafruit_MPU6050 mpu = Adafruit_MPU6050();
+
+    bool res = mpu.begin(MPU6050_I2CADDR_DEFAULT);
+
+    while (res) {
+        sensors_event_t accel, gyro, temp;
+        mpu.getEvent(&accel, &gyro, &temp);
+
+        // Serial.print("X: "); Serial.println(accel.acceleration.x);
+        // Serial.print("Y: "); Serial.println(accel.acceleration.y);
+        // Serial.print("Z: "); Serial.println(accel.acceleration.z);
+
+        float roll  = atan2(accel.acceleration.y, accel.acceleration.z) * 180.0 / PI;
+        float pitch = atan2(-accel.acceleration.x, sqrt(accel.acceleration.y * accel.acceleration.y + accel.acceleration.z * accel.acceleration.z)) * 180.0 / PI;
+
+        Serial.print("Roll: "); Serial.println(roll);
+        Serial.print("Pitch: "); Serial.println(pitch);
+
+        delay(100);
+    }
+
+    Serial.println("failed");
+}
+
 void setup()
 {
     pinMode(PIN_POWER_ON, OUTPUT);
@@ -287,6 +319,10 @@ void setup()
 
     Serial.begin(115200);
     Serial.println("Hello T-Display-S3");
+    delay(1000);
+
+    // TODO: remove
+    mpu_test();
 
     // setCpuFrequencyMhz(80);
 
@@ -318,7 +354,7 @@ void setup()
 
 
     screen.createSprite(tft.width(), tft.height());
-    temp_orb_sprite.createSprite(64, 64);
+    temp_orb_sprite.createSprite(IMAGE_DIAMETER, IMAGE_DIAMETER);
     
     // init all sprites for animation testing
     for (TFT_eSprite* sprite_frame : test_orb_animation){
@@ -326,6 +362,7 @@ void setup()
     }
     setup_light_ring_colors();
     setup_world();
+
 }
 
 void loop()
@@ -340,7 +377,7 @@ void loop()
     draw_circle();
 
 
-    world->Step(1.0f/60.0f, 6, 2);
+    world->Step(1.0f/40.0f, 6, 2);
 
     screen.pushSprite(0, 0);
     iterations++;
