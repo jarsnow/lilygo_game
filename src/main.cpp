@@ -42,7 +42,9 @@
 #define ORB_COUNT 15
 #define WALL_THICKNESS 5 // represents how thick the wall should be
 
-#define LIGHT_RING_COUNT 4
+Adafruit_MPU6050 mpu;
+
+#define LIGHT_RING_COUNT 5
 const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
 const uint16 LIGHT_COLOR = 0b0100011010110000;//0x43d783
 uint16 light_values[LIGHT_RING_COUNT] = {0};
@@ -284,32 +286,34 @@ void draw_light()
 
 }
 
-void mpu_test()
+void mpu_setup()
 {
     Wire.begin(43, 44);
     Wire.setClock(50000);
-    Adafruit_MPU6050 mpu = Adafruit_MPU6050();
+    mpu = Adafruit_MPU6050();
 
     bool res = mpu.begin(MPU6050_I2CADDR_DEFAULT);
 
-    while (res) {
-        sensors_event_t accel, gyro, temp;
-        mpu.getEvent(&accel, &gyro, &temp);
-
-        // Serial.print("X: "); Serial.println(accel.acceleration.x);
-        // Serial.print("Y: "); Serial.println(accel.acceleration.y);
-        // Serial.print("Z: "); Serial.println(accel.acceleration.z);
-
-        float roll  = atan2(accel.acceleration.y, accel.acceleration.z) * 180.0 / PI;
-        float pitch = atan2(-accel.acceleration.x, sqrt(accel.acceleration.y * accel.acceleration.y + accel.acceleration.z * accel.acceleration.z)) * 180.0 / PI;
-
-        Serial.print("Roll: "); Serial.println(roll);
-        Serial.print("Pitch: "); Serial.println(pitch);
-
-        delay(100);
+    if (!res) {
+        Serial.println("mpu setup failed");
+        exit(1);
     }
+}
 
-    Serial.println("failed");
+float mpu_roll() {
+    sensors_event_t accel, gyro, temp;
+    mpu.getEvent(&accel, &gyro, &temp);
+
+    float roll = atan2(accel.acceleration.y, accel.acceleration.z);
+    return roll;
+}
+
+float mpu_pitch() {
+    sensors_event_t accel, gyro, temp;
+    mpu.getEvent(&accel, &gyro, &temp);
+
+    float pitch = atan2(-accel.acceleration.x, sqrt(accel.acceleration.y * accel.acceleration.y + accel.acceleration.z * accel.acceleration.z));
+    return pitch;
 }
 
 void setup()
@@ -319,10 +323,8 @@ void setup()
 
     Serial.begin(115200);
     Serial.println("Hello T-Display-S3");
+    mpu_setup();
     delay(1000);
-
-    // TODO: remove
-    mpu_test();
 
     // setCpuFrequencyMhz(80);
 
@@ -367,7 +369,6 @@ void setup()
 
 void loop()
 {
-    setup_light_ring_colors();
     ulong start_time = millis();
 
     const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
@@ -376,33 +377,28 @@ void loop()
     draw_light();
     draw_circle();
 
-
-    world->Step(1.0f/40.0f, 6, 2);
+    world->Step(1.0f/10.0f, 6, 4);
 
     screen.pushSprite(0, 0);
     iterations++;
 
+    // update gravity using mpu
+    float roll = mpu_roll();
+    float x_grav = -9.8f * sin(roll);
+    float y_grav = -9.8f * cos(roll);
+    b2Vec2 mpu_grav(x_grav, y_grav);
+    world->SetGravity(mpu_grav);
 
-    // test gravity by setting it to a random direction every once in a while
-    if (iterations % 15 == 0){
-        // get random number -10 to 10
-        int random_x = (rand() % 21) - 10;
-        int random_y = (rand() % 21) - 10;
-        b2Vec2 new_gravity(random_x, random_y);
-        //world->SetGravity(new_gravity);
-
-        // awake all orbs
-        for (b2Body* orb : test_orbs) {
-            orb->SetAwake(true);
-        }
-
-        // update wall velocity
-        for (b2Body* wall : walls){
-            wall->SetLinearVelocity(wall_velocity_test);
-        }
-
-        wall_velocity_test *= -1;
+    // awake all orbs
+    for (b2Body* orb : test_orbs) {
+        orb->SetAwake(true);
     }
+
+    // update wall velocity
+    // for (b2Body* wall : walls){
+    //     wall->SetLinearVelocity(wall_velocity_test);
+    // }
+
 
     ulong end_time = millis();
     ulong draw_time = end_time - start_time;
