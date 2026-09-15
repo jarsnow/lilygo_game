@@ -59,9 +59,6 @@ b2Body* walls[4];
 
 b2Vec2 upper_wall_starting_point;
 
-// testing only
-b2Vec2 wall_velocity_test = b2Vec2(10, 10);
-
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite screen = TFT_eSprite(&tft);
 TFT_eSprite temp_orb_sprite = TFT_eSprite(&tft);
@@ -80,6 +77,7 @@ typedef struct {
     uint8_t data[14];
     uint8_t len;
 } lcd_cmd_t;
+
 
 lcd_cmd_t lcd_st7789v[] = {
     {0x11, {0}, 0 | 0x80},
@@ -104,7 +102,6 @@ void setup_world()
     // create world
     b2Vec2 gravity(2.0f, -9.8f);
     world = new b2World(gravity);
-
 
     // left and right wall fixtures
     // remember that the given values for SetAsBox are half-values
@@ -300,20 +297,22 @@ void mpu_setup()
     }
 }
 
-float mpu_roll() {
-    sensors_event_t accel, gyro, temp;
-    mpu.getEvent(&accel, &gyro, &temp);
-
+float roll_from_mpu_accel(sensors_event_t accel) {
     float roll = atan2(accel.acceleration.y, accel.acceleration.z);
     return roll;
 }
 
-float mpu_pitch() {
-    sensors_event_t accel, gyro, temp;
-    mpu.getEvent(&accel, &gyro, &temp);
-
+float pitch_from_mpu_accel(sensors_event_t accel) {
     float pitch = atan2(-accel.acceleration.x, sqrt(accel.acceleration.y * accel.acceleration.y + accel.acceleration.z * accel.acceleration.z));
     return pitch;
+}
+
+float horizontal_accel_from_mpu_accel(sensors_event_t accel) {
+    return accel.acceleration.y;
+}
+
+float vertical_accel_from_mpu_accel(sensors_event_t accel) {
+    return accel.acceleration.z - 9.8;
 }
 
 void setup()
@@ -383,10 +382,23 @@ void loop()
     iterations++;
 
     // update gravity using mpu
-    float roll = mpu_roll();
+    sensors_event_t accel, gyro, temp;
+    mpu.getEvent(&accel, &gyro, &temp);
+
+    float roll = roll_from_mpu_accel(accel);
+
+    Serial.print("pitch: ");
+    Serial.println(pitch_from_mpu_accel(accel));
+
     float x_grav = -9.8f * sin(roll);
     float y_grav = -9.8f * cos(roll);
+
+    // TODO: multiply gravity by tilt
+    float pitch = pitch_from_mpu_accel(accel);
+    float tilt_amount = abs(pitch) / (PI / 2);
+
     b2Vec2 mpu_grav(x_grav, y_grav);
+    mpu_grav *= (1 - tilt_amount);
     world->SetGravity(mpu_grav);
 
     // awake all orbs
@@ -395,9 +407,12 @@ void loop()
     }
 
     // update wall velocity
-    // for (b2Body* wall : walls){
-    //     wall->SetLinearVelocity(wall_velocity_test);
-    // }
+    float vx = horizontal_accel_from_mpu_accel(accel);
+    float vy = vertical_accel_from_mpu_accel(accel);
+    b2Vec2 mpu_velocity = b2Vec2(vx, vy);
+    for (b2Body* wall : walls){
+        wall->SetLinearVelocity(mpu_velocity);
+    }
 
 
     ulong end_time = millis();
