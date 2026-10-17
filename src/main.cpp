@@ -23,6 +23,10 @@
 #include "orb.h"
 #include "drawn_orb.h"
 
+// maybe switch these files to a 2d matrix instead of just one row of sprites
+#include "orb_3_sprites.h"
+#include "orb_4_sprites.h"
+
 #include <cmath>
 #include <cstdint>
 # include <cstdlib>
@@ -37,7 +41,7 @@
 #define SCREEN_HEIGHT_PX 170
 // box2d setup
 // used for sizing, no matter the size of the orb, it will always be 1meter x 1meter in box2d
-#define IMAGE_DIAMETER 64
+#define IMAGE_DIAMETER 50
 #define ORB_DIAMETER 45
 #define ORB_COUNT 15
 #define WALL_THICKNESS 5 // represents how thick the wall should be
@@ -64,7 +68,8 @@ TFT_eSprite screen = TFT_eSprite(&tft);
 TFT_eSprite temp_orb_sprite = TFT_eSprite(&tft);
 
 // must make this pointers
-TFT_eSprite* test_orb_animation[5];
+// 2 sets of 4 frames per orb
+TFT_eSprite* orb_animation[2][4];
 
 // light map as 1d array
 uint8* light_map = new uint8[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
@@ -100,7 +105,7 @@ lcd_cmd_t lcd_st7789v[] = {
 void setup_world()
 {
     // create world
-    b2Vec2 gravity(2.0f, -9.8f);
+    b2Vec2 gravity(0.0f, -9.8f);
     world = new b2World(gravity);
 
     // left and right wall fixtures
@@ -203,10 +208,6 @@ void draw_circle()
     // 0,0 is center of the display
     for (b2Body* single_orb : test_orbs) {
         // need to draw the orb image to a sprite, then draw that sprite to the main screen sprite
-
-        // push image to temp sprite
-        temp_orb_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, drawn_orb);
-
         b2Vec2 moved_diff = walls[2]->GetPosition() - upper_wall_starting_point;
 
         // subtract the distance that the wall has moved to get relative position
@@ -219,6 +220,36 @@ void draw_circle()
         const unsigned short pink = 0b1111100000011111;
         temp_orb_sprite.pushToSprite(&screen, py, px, pink);
     }
+}
+
+// pass in arrays in orb_3_sprites.h, orb_4_sprites.h
+void setup_single_sheet_matrix(const unsigned short *array, size_t sprite_num)
+{
+    // only used for a single header file
+    // input is an 10_000 length array, in row major order
+    // index of a single pixel is r * 200 + c, in global terms
+    // index of a single pixel, relative to orb i is (r * 200) + (i * 50 + c)
+    // for each orb in each sprite sheet, extract the sub-matrix and draw it to the sprite
+    for (size_t i = 0; i < 4; i++) {
+
+        unsigned short orb_image[2500] = {0};
+
+        for (size_t r = 0; r < 50; r++) {
+            for (size_t c = 0; c < 50; c++) {
+                size_t pixel_index = (r * 200) + (i * 50 + c);
+                orb_image[r * 50 + c] = array[pixel_index];
+            }
+        }
+
+        // save to sprite
+        orb_animation[sprite_num][i]->pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, orb_image);
+    }
+}
+
+void setup_sprite_animations()
+{
+    setup_single_sheet_matrix(orb_3_sprites, 0);
+    setup_single_sheet_matrix(orb_4_sprites, 0);
 }
 
 void setup_light_ring_colors()
@@ -329,19 +360,18 @@ void setup()
 
     tft.begin();
 
-#if defined(LCD_MODULE_CMD_1)
-    for (uint8_t i = 0; i < (sizeof(lcd_st7789v) / sizeof(lcd_cmd_t)); i++) {
-        tft.writecommand(lcd_st7789v[i].cmd);
-        for (int j = 0; j < (lcd_st7789v[i].len & 0x7f); j++) {
-            tft.writedata(lcd_st7789v[i].data[j]);
-        }
+    #if defined(LCD_MODULE_CMD_1)
+        for (uint8_t i = 0; i < (sizeof(lcd_st7789v) / sizeof(lcd_cmd_t)); i++) {
+            tft.writecommand(lcd_st7789v[i].cmd);
+            for (int j = 0; j < (lcd_st7789v[i].len & 0x7f); j++) {
+                tft.writedata(lcd_st7789v[i].data[j]);
+            }
 
-        if (lcd_st7789v[i].len & 0x80) {
-            delay(120);
+            if (lcd_st7789v[i].len & 0x80) {
+                delay(120);
+            }
         }
-    }
-#endif
-
+    #endif
 
     tft.setRotation(3);
     tft.setSwapBytes(true);
@@ -349,21 +379,25 @@ void setup()
     pinMode(PIN_LCD_BL, OUTPUT);
     digitalWrite(PIN_LCD_BL, HIGH);
 
-
     pinMode(PIN_LCD_BL, OUTPUT);
     digitalWrite(PIN_LCD_BL, HIGH);
 
-
     screen.createSprite(tft.width(), tft.height());
     temp_orb_sprite.createSprite(IMAGE_DIAMETER, IMAGE_DIAMETER);
+
+    // push image to temp sprite
+    temp_orb_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, drawn_orb);
     
     // init all sprites for animation testing
-    for (TFT_eSprite* sprite_frame : test_orb_animation){
-        sprite_frame = new TFT_eSprite(&tft);
+    for (auto& row: orb_animation){
+        for (auto& sprite : row) {
+            sprite = new TFT_eSprite(&tft);
+        }
     }
+
+    setup_sprite_animations();
     setup_light_ring_colors();
     setup_world();
-
 }
 
 void loop()

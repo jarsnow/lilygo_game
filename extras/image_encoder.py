@@ -1,4 +1,5 @@
 # take in a png image, turn it into a image.h file
+# usage: ./image_encoder.py img_name.png out_file_name 
 #
 # format of image.h file:
 #     54400 length array of 16bit pixel values
@@ -10,9 +11,6 @@
 from PIL import Image
 import numpy as np
 import sys
-
-image_height = 64
-image_width = 64
 
 image_input_max_num = 256 # 8 bits per color in a normal image
 image_output_max_num_rgb = [2**5, 2**6, 2**5] # 5 bits for red and blue, 6 for green
@@ -27,15 +25,11 @@ img = Image.open(sys.argv[1])
 file_name = sys.argv[2]
 array = np.asarray(img, dtype=np.uint64)
 
-if (array.shape != (image_height, image_width, 4)):
-    print("image is not right shape, check if it is png or size")
-    exit()
-
 pixel_strings_to_add = []
 
 # convert array from uint8 to 5, 6, 5 
-for r in range(image_height):
-    for c in range(image_width):
+for r in range(array.shape[0]):
+    for c in range(array.shape[1]):
 
 
         rgba = array[r, c]
