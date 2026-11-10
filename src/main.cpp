@@ -1,5 +1,7 @@
 #include "Adafruit_Sensor.h"
 #include "Arduino.h"
+
+
 #include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
 #include "HWCDC.h"
 
@@ -37,8 +39,8 @@
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
 #define LCD_MODULE_CMD_1
-#define SCREEN_WIDTH_PX 320
-#define SCREEN_HEIGHT_PX 170
+#define SCREEN_WIDTH_PX 240
+#define SCREEN_HEIGHT_PX 280
 // box2d setup
 // used for sizing, no matter the size of the orb, it will always be 1meter x 1meter in box2d
 #define IMAGE_DIAMETER 50
@@ -75,32 +77,6 @@ TFT_eSprite* orb_animation[2][4];
 uint8* light_map = new uint8[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
 
 size_t iterations = 0;
-
-#if defined(LCD_MODULE_CMD_1)
-typedef struct {
-    uint8_t cmd;
-    uint8_t data[14];
-    uint8_t len;
-} lcd_cmd_t;
-
-
-lcd_cmd_t lcd_st7789v[] = {
-    {0x11, {0}, 0 | 0x80},
-    {0x3A, {0X05}, 1},
-    {0xB2, {0X0B, 0X0B, 0X00, 0X33, 0X33}, 5},
-    {0xB7, {0X75}, 1},
-    {0xBB, {0X28}, 1},
-    {0xC0, {0X2C}, 1},
-    {0xC2, {0X01}, 1},
-    {0xC3, {0X1F}, 1},
-    {0xC6, {0X13}, 1},
-    {0xD0, {0XA7}, 1},
-    {0xD0, {0XA4, 0XA1}, 2},
-    {0xD6, {0XA1}, 1},
-    {0xE0, {0XF0, 0X05, 0X0A, 0X06, 0X06, 0X03, 0X2B, 0X32, 0X43, 0X36, 0X11, 0X10, 0X2B, 0X32}, 14},
-    {0xE1, {0XF0, 0X08, 0X0C, 0X0B, 0X09, 0X24, 0X2B, 0X22, 0X43, 0X38, 0X15, 0X16, 0X2F, 0X37}, 14},
-};
-#endif
 
 void setup_world()
 {
@@ -353,100 +329,88 @@ void setup()
 
     Serial.begin(115200);
     Serial.println("Hello T-Display-S3");
-    mpu_setup();
-    delay(1000);
 
-    // setCpuFrequencyMhz(80);
-
-    tft.begin();
-
-    #if defined(LCD_MODULE_CMD_1)
-        for (uint8_t i = 0; i < (sizeof(lcd_st7789v) / sizeof(lcd_cmd_t)); i++) {
-            tft.writecommand(lcd_st7789v[i].cmd);
-            for (int j = 0; j < (lcd_st7789v[i].len & 0x7f); j++) {
-                tft.writedata(lcd_st7789v[i].data[j]);
-            }
-
-            if (lcd_st7789v[i].len & 0x80) {
-                delay(120);
-            }
-        }
-    #endif
-
-    tft.setRotation(3);
-    tft.setSwapBytes(true);
-
-    pinMode(PIN_LCD_BL, OUTPUT);
-    digitalWrite(PIN_LCD_BL, HIGH);
-
-    pinMode(PIN_LCD_BL, OUTPUT);
-    digitalWrite(PIN_LCD_BL, HIGH);
-
-    screen.createSprite(tft.width(), tft.height());
-    temp_orb_sprite.createSprite(IMAGE_DIAMETER, IMAGE_DIAMETER);
-
-    // push image to temp sprite
-    temp_orb_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, drawn_orb);
-    
-    // init all sprites for animation testing
-    for (auto& row: orb_animation){
-        for (auto& sprite : row) {
-            sprite = new TFT_eSprite(&tft);
-        }
-    }
-
-    setup_sprite_animations();
-    setup_light_ring_colors();
-    setup_world();
+    //mpu_setup();
+    // delay(1000);
+    //
+    // // setCpuFrequencyMhz(80);
+    //
+    // tft.begin();
+    //
+    // tft.setRotation(3);
+    // tft.setSwapBytes(true);
+    //
+    // pinMode(PIN_LCD_BL, OUTPUT);
+    // digitalWrite(PIN_LCD_BL, HIGH);
+    //
+    // pinMode(PIN_LCD_BL, OUTPUT);
+    // digitalWrite(PIN_LCD_BL, HIGH);
+    //
+    // screen.createSprite(tft.width(), tft.height());
+    // temp_orb_sprite.createSprite(IMAGE_DIAMETER, IMAGE_DIAMETER);
+    //
+    // // push image to temp sprite
+    // temp_orb_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, drawn_orb);
+    //
+    // // init all sprites for animation testing
+    // for (auto& row: orb_animation){
+    //     for (auto& sprite : row) {
+    //         sprite = new TFT_eSprite(&tft);
+    //     }
+    // }
+    //
+    // setup_sprite_animations();
+    // setup_light_ring_colors();
+    // setup_world();
 }
 
 void loop()
 {
     ulong start_time = millis();
-
-    const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
-    screen.fillSprite(BACKGROUND_COLOR);
-
-    draw_light();
-    draw_circle();
-
-    world->Step(1.0f/10.0f, 6, 4);
-
-    screen.pushSprite(0, 0);
-    iterations++;
-
-    // update gravity using mpu
-    sensors_event_t accel, gyro, temp;
-    mpu.getEvent(&accel, &gyro, &temp);
-
-    float roll = roll_from_mpu_accel(accel);
-
-    Serial.print("pitch: ");
-    Serial.println(pitch_from_mpu_accel(accel));
-
-    float x_grav = -9.8f * sin(roll);
-    float y_grav = -9.8f * cos(roll);
-
-    // TODO: multiply gravity by tilt
-    float pitch = pitch_from_mpu_accel(accel);
-    float tilt_amount = abs(pitch) / (PI / 2);
-
-    b2Vec2 mpu_grav(x_grav, y_grav);
-    mpu_grav *= (1 - tilt_amount);
-    world->SetGravity(mpu_grav);
-
-    // awake all orbs
-    for (b2Body* orb : test_orbs) {
-        orb->SetAwake(true);
-    }
-
-    // update wall velocity
-    float vx = horizontal_accel_from_mpu_accel(accel);
-    float vy = vertical_accel_from_mpu_accel(accel);
-    b2Vec2 mpu_velocity = b2Vec2(vx, vy);
-    for (b2Body* wall : walls){
-        wall->SetLinearVelocity(mpu_velocity);
-    }
+    //
+    // const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
+    // screen.fillSprite(BACKGROUND_COLOR);
+    //
+    // draw_light();
+    // draw_circle();
+    //
+    // world->Step(1.0f/10.0f, 6, 4);
+    //
+    // screen.pushSprite(0, 0);
+    // iterations++;
+    //
+    // // update gravity using mpu
+    // sensors_event_t accel, gyro, temp;
+    // mpu.getEvent(&accel, &gyro, &temp);
+    //
+    // float roll = roll_from_mpu_accel(accel);
+    //
+    // Serial.print("pitch: ");
+    // Serial.println(pitch_from_mpu_accel(accel));
+    //
+    // float x_grav = -9.8f * sin(roll);
+    // float y_grav = -9.8f * cos(roll);
+    //
+    // // TODO: multiply gravity by tilt
+    // float pitch = pitch_from_mpu_accel(accel);
+    // float tilt_amount = abs(pitch) / (PI / 2);
+    //
+    // b2Vec2 mpu_grav(x_grav, y_grav);
+    // mpu_grav *= (1 - tilt_amount);
+    // world->SetGravity(mpu_grav);
+    //
+    // // awake all orbs
+    // for (b2Body* orb : test_orbs) {
+    //     orb->SetAwake(true);
+    // }
+    //
+    // // update wall velocity
+    // float vx = horizontal_accel_from_mpu_accel(accel);
+    // float vy = vertical_accel_from_mpu_accel(accel);
+    // b2Vec2 mpu_velocity = b2Vec2(vx, vy);
+    // for (b2Body* wall : walls){
+    //     wall->SetLinearVelocity(mpu_velocity);
+    // }
 
 
     ulong end_time = millis();
@@ -454,25 +418,3 @@ void loop()
     Serial.print("Draw time: ");
     Serial.println(draw_time);
 }
-
-
-// TFT Pin check
-#if PIN_LCD_WR  != TFT_WR || \
-    PIN_LCD_RD  != TFT_RD || \
-    PIN_LCD_CS    != TFT_CS   || \
-    PIN_LCD_DC    != TFT_DC   || \
-    PIN_LCD_RES   != TFT_RST  || \
-    PIN_LCD_D0   != TFT_D0  || \
-    PIN_LCD_D1   != TFT_D1  || \
-    PIN_LCD_D2   != TFT_D2  || \
-    PIN_LCD_D3   != TFT_D3  || \
-    PIN_LCD_D4   != TFT_D4  || \
-    PIN_LCD_D5   != TFT_D5  || \
-    PIN_LCD_D6   != TFT_D6  || \
-    PIN_LCD_D7   != TFT_D7  || \
-    PIN_LCD_BL   != TFT_BL  || \
-    TFT_BACKLIGHT_ON   != HIGH  || \
-    170   != TFT_WIDTH  || \
-    320   != TFT_HEIGHT
-#error  "Error! Please make sure <User_Setups/Setup206_LilyGo_T_Display_S3.h> is selected in <TFT_eSPI/User_Setup_Select.h>"
-#endif
