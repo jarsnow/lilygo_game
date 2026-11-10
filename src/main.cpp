@@ -20,8 +20,6 @@
 #include "esp32-hal-cpu.h"
 #include "esp32-hal.h"
 
-#include "pin_config.h"
-
 #include "orb.h"
 #include "drawn_orb.h"
 
@@ -292,7 +290,7 @@ void draw_light()
 
 void mpu_setup()
 {
-    Wire.begin(43, 44);
+    Wire.begin(5, 6);
     Wire.setClock(50000);
     mpu = Adafruit_MPU6050();
 
@@ -324,13 +322,11 @@ float vertical_accel_from_mpu_accel(sensors_event_t accel) {
 
 void setup()
 {
-    pinMode(PIN_POWER_ON, OUTPUT);
-    digitalWrite(PIN_POWER_ON, HIGH);
 
     Serial.begin(115200);
-    Serial.println("Hello T-Display-S3");
+    Serial.println("Hello now xiao esp32s3 seeed");
 
-    //mpu_setup();
+    mpu_setup();
     // delay(1000);
     //
     // // setCpuFrequencyMhz(80);
