@@ -121,7 +121,6 @@ LGFX_Sprite* orb_animation[2][4];
 // light map as 1d array
 uint8* light_map = new uint8[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
 
-size_t iterations = 0;
 
 void setup_world()
 {
@@ -374,7 +373,7 @@ void setup()
     Serial.println("Hello now xiao esp32s3 seeed");
 
     tft.init();
-    tft.setRotation(1);
+    tft.setRotation(0);
     tft.setBrightness(255);
 
     mpu_setup();
@@ -382,9 +381,10 @@ void setup()
 
     // // setCpuFrequencyMhz(80);
     screen.createSprite(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
+
     leblanc_sprite.createSprite(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
-    leblanc_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, leblanc);
-    leblanc_sprite.pushSprite(0, 0);
+    leblanc_sprite.pushImage(0, 0, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, leblanc);
+
     // temp_orb_sprite.createSprite(IMAGE_DIAMETER, IMAGE_DIAMETER);
     //
     // // push image to temp sprite
@@ -397,61 +397,62 @@ void setup()
     //     }
     // }
     //
+    //
     // setup_sprite_animations();
     // setup_light_ring_colors();
-    // setup_world();
+    setup_world();
 }
 
 void loop()
 {
     ulong start_time = millis();
 
-    // const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
-    // screen.fillSprite(BACKGROUND_COLOR);
+    const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
+    screen.fillSprite(BACKGROUND_COLOR);
 
-    //
-    // draw_light();
-    // draw_circle();
-    //
-    // world->Step(1.0f/10.0f, 6, 4);
-    //
-    // leblanc_sprite.pushSprite(&screen, 0, 0);
-    // screen.pushSprite(0, 0);
-    // iterations++;
-    //
+
+    draw_light();
+    draw_circle();
+
+    world->Step(1.0f/10.0f, 6, 4);
+
+    leblanc_sprite.pushSprite(&screen, 0, 0);
+    screen.pushSprite(0, 0);
+
     // update gravity using mpu
-    //
-    // sensors_event_t accel, gyro, temp;
-    // mpu.getEvent(&accel, &gyro, &temp);
-    //
-    // float roll = roll_from_mpu_accel(accel);
-    //
-    // Serial.print("pitch: ");
-    // Serial.println(pitch_from_mpu_accel(accel));
+    sensors_event_t accel, gyro, temp;
+    mpu.getEvent(&accel, &gyro, &temp);
 
-    // float x_grav = -9.8f * sin(roll);
-    // float y_grav = -9.8f * cos(roll);
-    //
-    // // TODO: multiply gravity by tilt
-    // float pitch = pitch_from_mpu_accel(accel);
-    // float tilt_amount = abs(pitch) / (PI / 2);
-    //
-    // b2Vec2 mpu_grav(x_grav, y_grav);
-    // mpu_grav *= (1 - tilt_amount);
-    // world->SetGravity(mpu_grav);
-    //
-    // // awake all orbs
-    // for (b2Body* orb : test_orbs) {
-    //     orb->SetAwake(true);
-    // }
-    //
-    // // update wall velocity
-    // float vx = horizontal_accel_from_mpu_accel(accel);
-    // float vy = vertical_accel_from_mpu_accel(accel);
-    // b2Vec2 mpu_velocity = b2Vec2(vx, vy);
-    // for (b2Body* wall : walls){
-    //     wall->SetLinearVelocity(mpu_velocity);
-    // }
+    float roll = roll_from_mpu_accel(accel);
+
+    Serial.print("pitch: ");
+    Serial.println(pitch_from_mpu_accel(accel));
+    Serial.print("roll: ");
+    Serial.println(roll_from_mpu_accel(accel));
+
+    float x_grav = -9.8f * sin(roll);
+    float y_grav = -9.8f * cos(roll);
+
+    // TODO: multiply gravity by tilt
+    float pitch = pitch_from_mpu_accel(accel);
+    float tilt_amount = abs(pitch) / (PI / 2);
+
+    b2Vec2 mpu_grav(x_grav, y_grav);
+    mpu_grav *= (1 - tilt_amount);
+    world->SetGravity(mpu_grav);
+
+    // awake all orbs
+    for (b2Body* orb : test_orbs) {
+        orb->SetAwake(true);
+    }
+
+    // update wall velocity
+    float vx = horizontal_accel_from_mpu_accel(accel);
+    float vy = vertical_accel_from_mpu_accel(accel);
+    b2Vec2 mpu_velocity = b2Vec2(vx, vy);
+    for (b2Body* wall : walls){
+        wall->SetLinearVelocity(mpu_velocity);
+    }
 
 
     ulong end_time = millis();
