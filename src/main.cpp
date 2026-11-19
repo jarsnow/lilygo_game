@@ -24,7 +24,6 @@
 // maybe switch these files to a 2d matrix instead of just one row of sprites
 #include "orb_3_sprites.h"
 #include "orb_4_sprites.h"
-#include "leblanc.h" // test TODO: remove
 
 #include <cmath>
 #include <cstdint>
@@ -85,7 +84,7 @@ LGFX() {
 #define SCREEN_HEIGHT_PX 280
 // box2d setup
 // used for sizing, no matter the size of the orb, it will always be 1meter x 1meter in box2d
-#define IMAGE_DIAMETER 50
+#define IMAGE_DIAMETER 64
 #define ORB_DIAMETER 45
 #define ORB_COUNT 15
 #define WALL_THICKNESS 5 // represents how thick the wall should be
@@ -112,7 +111,6 @@ LGFX tft;
 
 LGFX_Sprite screen(&tft);
 LGFX_Sprite temp_orb_sprite(&tft);
-LGFX_Sprite leblanc_sprite(&tft);
 
 // must make this pointers
 // 2 sets of 4 frames per orb
@@ -212,14 +210,14 @@ int get_orb_center_pixel_x(b2Body* orb)
 {
     b2Vec2 moved_diff = walls[2]->GetPosition() - upper_wall_starting_point;
     b2Vec2 position = orb->GetPosition() - moved_diff;
-    return position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2);
+    return position.x * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2);
 }
 
 int get_orb_center_pixel_y(b2Body* orb)
 {
     b2Vec2 moved_diff = walls[2]->GetPosition() - upper_wall_starting_point;
     b2Vec2 position = orb->GetPosition() - moved_diff;
-    return position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2);
+    return position.y * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2);
 }
 
 void draw_circle()
@@ -232,13 +230,13 @@ void draw_circle()
 
         // subtract the distance that the wall has moved to get relative position
         b2Vec2 position = single_orb->GetPosition() - moved_diff;
-        int px = position.x * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2) - (IMAGE_DIAMETER / 2);
-        int py = position.y * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2) - (IMAGE_DIAMETER / 2);
+        int px = position.x * ORB_DIAMETER + (SCREEN_WIDTH_PX / 2) - (IMAGE_DIAMETER / 2);
+        int py = position.y * ORB_DIAMETER + (SCREEN_HEIGHT_PX / 2) - (IMAGE_DIAMETER / 2);
 
         // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
         // push sprite to screen sprite
         const unsigned short pink = 0b1111100000011111;
-        temp_orb_sprite.pushSprite(&screen, py, px, pink);
+        temp_orb_sprite.pushSprite(&screen, px, py, pink);
     }
 }
 
@@ -328,7 +326,7 @@ void draw_light()
     // then draw lighter orbs next
     for (size_t i = 0; i < LIGHT_RING_COUNT; i++) {
         for (size_t j = 0; j < ORB_COUNT; j++) {
-            screen.fillCircle(orbs_y[j], orbs_x[j], orb_radius + (radius_per_step * (LIGHT_RING_COUNT - i)), light_values[LIGHT_RING_COUNT - i]);
+            screen.fillCircle(orbs_x[j], orbs_y[j], orb_radius + (radius_per_step * (LIGHT_RING_COUNT - i)), light_values[LIGHT_RING_COUNT - i]);
         }
     }
 
@@ -382,13 +380,10 @@ void setup()
     // // setCpuFrequencyMhz(80);
     screen.createSprite(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
 
-    leblanc_sprite.createSprite(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
-    leblanc_sprite.pushImage(0, 0, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, leblanc);
+    temp_orb_sprite.createSprite(IMAGE_DIAMETER, IMAGE_DIAMETER);
 
-    // temp_orb_sprite.createSprite(IMAGE_DIAMETER, IMAGE_DIAMETER);
-    //
-    // // push image to temp sprite
-    // temp_orb_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, drawn_orb);
+    // push image to temp sprite
+    temp_orb_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, drawn_orb);
     //
     // // init all sprites for animation testing
     // for (auto& row: orb_animation){
@@ -396,10 +391,9 @@ void setup()
     //         sprite = new LGFX_Sprite(&tft);
     //     }
     // }
-    //
-    //
     // setup_sprite_animations();
-    // setup_light_ring_colors();
+
+    setup_light_ring_colors();
     setup_world();
 }
 
@@ -407,7 +401,8 @@ void loop()
 {
     ulong start_time = millis();
 
-    const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
+    // const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
+    const uint16 BACKGROUND_COLOR = 0b0010001000000101; // 0x20412c
     screen.fillSprite(BACKGROUND_COLOR);
 
 
@@ -416,7 +411,6 @@ void loop()
 
     world->Step(1.0f/10.0f, 6, 4);
 
-    leblanc_sprite.pushSprite(&screen, 0, 0);
     screen.pushSprite(0, 0);
 
     // update gravity using mpu
