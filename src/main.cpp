@@ -1,8 +1,6 @@
 #include "Adafruit_Sensor.h"
 #include "Arduino.h"
 
-
-#include <TFT_eSPI.h> /* Please use the TFT library provided in the library. */
 #include "HWCDC.h"
 
 #include "box2d/b2_body.h"
@@ -26,6 +24,7 @@
 // maybe switch these files to a 2d matrix instead of just one row of sprites
 #include "orb_3_sprites.h"
 #include "orb_4_sprites.h"
+#include "leblanc.h" // test TODO: remove
 
 #include <cmath>
 #include <cstdint>
@@ -33,6 +32,51 @@
 #include <cstring>
 #include <iterator>
 #include <vector>
+
+#define LGFX_USE_V1
+#include <LovyanGFX.hpp>
+
+class LGFX : public lgfx::LGFX_Device {
+    lgfx::Panel_ST7789 _panel;
+    lgfx::Bus_SPI      _bus;
+    lgfx::Light_PWM    _light;
+
+public:
+LGFX() {
+    {
+        auto cfg = _bus.config();
+        cfg.spi_host   = SPI2_HOST;
+        cfg.spi_mode   = 0;
+        cfg.freq_write = 40000000;
+        cfg.pin_sclk   = 7;     // D8
+        cfg.pin_mosi   = 9;     // D10
+        cfg.pin_miso   = -1;    // unused
+        cfg.pin_dc     = 2;     // D1
+        _bus.config(cfg);
+        _panel.setBus(&_bus);
+    }
+    {
+        auto cfg = _panel.config();
+        cfg.pin_cs       = 3;   // D2
+        cfg.pin_rst      = 1;   // D0
+        cfg.panel_width  = 240;
+        cfg.panel_height = 280;
+        cfg.invert       = true;
+        cfg.offset_y = 20; // get rid of pixel rows of noise at the bottom
+        _panel.config(cfg);
+    }
+    {
+        auto cfg = _light.config();
+        cfg.pin_bl      = 4;    // D3
+        cfg.invert      = false;
+        cfg.freq        = 44100;
+        cfg.pwm_channel = 7;
+        _light.config(cfg);
+        _panel.setLight(&_light);
+    }
+        setPanel(&_panel);
+    }
+};
 
 
 /* The product now has two screens, and the initialization code needs a small change in the new version. The LCD_MODULE_CMD_1 is used to define the switch macro. */
@@ -63,13 +107,16 @@ b2Body* walls[4];
 
 b2Vec2 upper_wall_starting_point;
 
-TFT_eSPI tft = TFT_eSPI();
-TFT_eSprite screen = TFT_eSprite(&tft);
-TFT_eSprite temp_orb_sprite = TFT_eSprite(&tft);
+// replacement for tft_eSPI
+LGFX tft;
+
+LGFX_Sprite screen(&tft);
+LGFX_Sprite temp_orb_sprite(&tft);
+LGFX_Sprite leblanc_sprite(&tft);
 
 // must make this pointers
 // 2 sets of 4 frames per orb
-TFT_eSprite* orb_animation[2][4];
+LGFX_Sprite* orb_animation[2][4];
 
 // light map as 1d array
 uint8* light_map = new uint8[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
@@ -192,7 +239,7 @@ void draw_circle()
         // to translate a vertical px,py to horizontal r/c, px-> row, py -> col
         // push sprite to screen sprite
         const unsigned short pink = 0b1111100000011111;
-        temp_orb_sprite.pushToSprite(&screen, py, px, pink);
+        temp_orb_sprite.pushSprite(&screen, py, px, pink);
     }
 }
 
@@ -326,23 +373,18 @@ void setup()
     Serial.begin(115200);
     Serial.println("Hello now xiao esp32s3 seeed");
 
+    tft.init();
+    tft.setRotation(1);
+    tft.setBrightness(255);
+
     mpu_setup();
-    // delay(1000);
-    //
+    delay(1000);
+
     // // setCpuFrequencyMhz(80);
-    //
-    // tft.begin();
-    //
-    // tft.setRotation(3);
-    // tft.setSwapBytes(true);
-    //
-    // pinMode(PIN_LCD_BL, OUTPUT);
-    // digitalWrite(PIN_LCD_BL, HIGH);
-    //
-    // pinMode(PIN_LCD_BL, OUTPUT);
-    // digitalWrite(PIN_LCD_BL, HIGH);
-    //
-    // screen.createSprite(tft.width(), tft.height());
+    screen.createSprite(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
+    leblanc_sprite.createSprite(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
+    leblanc_sprite.pushImage(0, 0, IMAGE_DIAMETER, IMAGE_DIAMETER, leblanc);
+    leblanc_sprite.pushSprite(0, 0);
     // temp_orb_sprite.createSprite(IMAGE_DIAMETER, IMAGE_DIAMETER);
     //
     // // push image to temp sprite
@@ -351,7 +393,7 @@ void setup()
     // // init all sprites for animation testing
     // for (auto& row: orb_animation){
     //     for (auto& sprite : row) {
-    //         sprite = new TFT_eSprite(&tft);
+    //         sprite = new LGFX_Sprite(&tft);
     //     }
     // }
     //
@@ -363,19 +405,22 @@ void setup()
 void loop()
 {
     ulong start_time = millis();
-    //
+
     // const uint16 BACKGROUND_COLOR = 0b0001000010000010; // 0x20412c
     // screen.fillSprite(BACKGROUND_COLOR);
+
     //
     // draw_light();
     // draw_circle();
     //
     // world->Step(1.0f/10.0f, 6, 4);
     //
+    // leblanc_sprite.pushSprite(&screen, 0, 0);
     // screen.pushSprite(0, 0);
     // iterations++;
     //
-    // // update gravity using mpu
+    // update gravity using mpu
+    //
     // sensors_event_t accel, gyro, temp;
     // mpu.getEvent(&accel, &gyro, &temp);
     //
@@ -383,7 +428,7 @@ void loop()
     //
     // Serial.print("pitch: ");
     // Serial.println(pitch_from_mpu_accel(accel));
-    //
+
     // float x_grav = -9.8f * sin(roll);
     // float y_grav = -9.8f * cos(roll);
     //
